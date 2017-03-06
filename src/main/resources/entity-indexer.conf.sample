@@ -1,0 +1,7 @@
+entity-indexer {
+    code {
+        capiKey=""
+        googleKey=""
+        streamName="content-api-entities-CODE"
+    }
+}
