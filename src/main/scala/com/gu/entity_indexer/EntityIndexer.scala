@@ -79,27 +79,31 @@ object EntityIndexer extends App {
 
   def getGoogleEntity(term: String): Option[GoogleEntity] = {
     KnowledgeGraph.getEntities(term, config.googleKey).flatMap { result =>
-      val maybeEntity = result.itemListElement.collectFirst {
+      /**
+        * If there's more than one entity with this name, don't use it.
+        * TODO - handle name clashes, e.g. generate id=person/john_smith_2
+        */
+      val entities = result.itemListElement.collect {
         case element if element.result.name.toLowerCase == term.toLowerCase => element.result
       }
 
-      maybeEntity match {
-        case Some(e) =>
-          val toPrint = s"${e.name},${e.`@type`}\n"
+      entities.toList match {
+        case entity :: Nil =>
+          val toPrint = s"${entity.name},${entity.`@type`.intersect(entityTypes).headOption.getOrElse("MISSING")}\n"
           successWriter.write(toPrint)
-        case None =>
+          Some(entity)
+        case _ =>
           val toPrint = s"$term,${result.itemListElement.map(_.result.name).mkString(",")}\n"
           failureWriter.write(toPrint)
+          None
       }
-      maybeEntity
     }
   }
 
   def buildEntity(googleEntity: GoogleEntity): Option[Entity] = {
-    //TODO - First check if we already have this googleId in CAPI
     googleEntity.`@type`.intersect(entityTypes).headOption.flatMap {
       case "Person" => Some(Entity(
-        id = s"person/${googleEntity.name}/${java.util.UUID.randomUUID()}",
+        id = s"person/${hyphenate(googleEntity.name)}",
         entityType = EntityType.Person,
         googleId = Some(googleEntity.`@id`),
         person = Some(Person(googleEntity.name))
@@ -109,4 +113,6 @@ object EntityIndexer extends App {
         None
     }
   }
+
+  private def hyphenate(name: String): String = name.toLowerCase.replaceAll(" ", "-")
 }
