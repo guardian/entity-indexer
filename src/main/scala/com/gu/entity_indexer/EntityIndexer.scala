@@ -4,8 +4,10 @@ import java.io.{File, PrintWriter}
 
 import com.gu.contentapi.client.model.v1.TagType.Keyword
 import com.gu.contentapi.client.model.{ItemQuery, TagsQuery}
+import com.gu.contententity.thrift.entity.organisation.Organisation
 import com.gu.contententity.thrift.{Entity, EntityType}
 import com.gu.contententity.thrift.entity.person.Person
+import com.gu.contententity.thrift.entity.place.Place
 import com.gu.entity_indexer.integration.EntityPublisher
 
 import scala.concurrent.Await
@@ -21,7 +23,7 @@ object EntityIndexer extends App {
 
   val config = Config(args(0))
 
-  val entityTypes = Set("Person") //Only these types will be retrieved from Google
+  val entityTypes = config.types.map(t => KnowledgeGraph.americanise(t.name)).toSet //Only these types will be retrieved from Google
 
   val successWriter = new PrintWriter(new File("./tag-entity-success.csv"))
   val failureWriter = new PrintWriter(new File("./tag-entity-failure.csv"))
@@ -78,7 +80,7 @@ object EntityIndexer extends App {
   }
 
   def getGoogleEntity(term: String): Option[GoogleEntity] = {
-    KnowledgeGraph.getEntities(term, config.googleKey).flatMap { result =>
+    KnowledgeGraph.getEntities(term, config.googleKey, entityTypes).flatMap { result =>
       /**
         * If there's more than one entity with this name, don't use it.
         * TODO - handle name clashes, e.g. generate id=person/john_smith_2
@@ -107,6 +109,18 @@ object EntityIndexer extends App {
         entityType = EntityType.Person,
         googleId = Some(googleEntity.`@id`),
         person = Some(Person(googleEntity.name))
+      ))
+      case "Place" => Some(Entity(
+        id = s"place/${hyphenate(googleEntity.name)}",
+        entityType = EntityType.Place,
+        googleId = Some(googleEntity.`@id`),
+        place = Some(Place(googleEntity.name))
+      ))
+      case "Organization" => Some(Entity(
+        id = s"organisation/${hyphenate(googleEntity.name)}",
+        entityType = EntityType.Organisation,
+        googleId = Some(googleEntity.`@id`),
+        organisation = Some(Organisation(googleEntity.name))
       ))
       case _ =>
         println(s"No valid entity type found for: $googleEntity")

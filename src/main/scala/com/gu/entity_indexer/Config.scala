@@ -7,12 +7,14 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.kinesis.AmazonKinesisClient
 import com.gu.contentapi.client.GuardianContentClient
+import com.gu.contententity.thrift.EntityType
 import com.typesafe.config.ConfigFactory
 
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 case class KinesisConfig(streamName: String, stsRoleArn: String, kinesisClient: AmazonKinesisClient)
-case class Config(kinesis: KinesisConfig, capi: GuardianContentClient, googleKey: String)
+case class Config(kinesis: KinesisConfig, capi: GuardianContentClient, googleKey: String, types: List[EntityType])
 
 object Config {
   private val userHome = System.getProperty("user.home")
@@ -22,6 +24,8 @@ object Config {
     val conf = Try(rootConfig.getConfig(s"entity-indexer.${stage.toLowerCase}")).toOption getOrElse sys.error("Could not retrieve stage sensitive config. This application will not run.")
 
     def getMandatoryString(item: String) = Try(conf.getString(item)).toOption getOrElse sys.error(s"Could not get item $item from config. Exiting.")
+
+    def getMandatoryArray(item: String) = Try(conf.getStringList(item)).toOption getOrElse sys.error(s"Could not get item $item from config. Exiting.")
 
     val streamName = getMandatoryString("streamName")
     val stsRoleArn = getMandatoryString("stsRoleArn")
@@ -42,6 +46,8 @@ object Config {
 
     val googleKey = getMandatoryString("googleKey")
 
-    Config(kinesisConfig, new GuardianContentClient(capiApiKey), googleKey)
+    val types = getMandatoryArray("types").asScala.toList.flatMap(t => EntityType.valueOf(t.toLowerCase))
+
+    Config(kinesisConfig, new GuardianContentClient(capiApiKey), googleKey, types)
   }
 }
