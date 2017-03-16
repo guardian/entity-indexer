@@ -1,5 +1,6 @@
 package com.gu.entity_indexer
 
+import com.gu.contententity.thrift.EntityType
 import okhttp3.{OkHttpClient, Request}
 import io.circe.parser.decode
 import io.circe.generic.auto._
@@ -11,12 +12,18 @@ case class GoogleEntity(name: String, `@type`: Set[String], description: Option[
 object KnowledgeGraph {
   private val httpClient: OkHttpClient = new OkHttpClient()
 
-  private def buildUrl(term: String, key: String): String = {
-    s"""https://kgsearch.googleapis.com/v1/entities:search?query=${term.replaceAll(" ","+")}&key=$key&limit=5&types=Person&types=Place&types=Organization"""
+  private def buildUrl(term: String, key: String, types: Set[String]): String = {
+    val typesParams = types.map(t => s"types=${americanise(t)}").mkString("&")
+    s"""https://kgsearch.googleapis.com/v1/entities:search?query=${term.replaceAll(" ","+")}&key=$key&limit=5&$typesParams"""
   }
 
-  def getEntities(term: String, key: String): Option[GoogleResponse] = {
-    val request = new Request.Builder().url(buildUrl(term, key)).build
+  def americanise(correct: String) = correct match {
+    case "Organisation" => "Organization"
+    case _ => correct
+  }
+
+  def getEntities(term: String, key: String, types: Set[String]): Option[GoogleResponse] = {
+    val request = new Request.Builder().url(buildUrl(term, key, types)).build
     val response = httpClient.newCall(request).execute
     if (response.isSuccessful) {
       val body = response.body.string

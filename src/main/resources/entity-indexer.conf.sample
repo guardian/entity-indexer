@@ -3,5 +3,6 @@ entity-indexer {
         capiKey=""
         googleKey=""
         streamName="content-api-entities-CODE"
+        types=["person","organisation","place"]
     }
 }
